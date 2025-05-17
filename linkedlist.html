@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Linked List 3D Game</title>
+  <style>
+    body { margin: 0; overflow: hidden; background: #111; }
+    canvas { display: block; }
+    #ui {
+      position: absolute; top: 10px; left: 10px; color: white;
+      font-family: Arial; background: rgba(0,0,0,0.5); padding: 10px;
+      border-radius: 8px;
+    }
+    button { margin: 5px; }
+  </style>
+</head>
+<body>
+  <div id="ui">
+    <button onclick="insertNode()">Insert Node</button>
+    <button onclick="deleteNode()">Delete Node</button>
+    <button onclick="reverseList()">Reverse List</button>
+    <p id="info">Use buttons to interact with the linked list.</p>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
+
+  <script>
+    // THREE.JS SETUP
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+    camera.position.z = 15;
+
+    const renderer = new THREE.WebGLRenderer();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    const light = new THREE.PointLight(0xffffff, 1);
+    light.position.set(10, 10, 10);
+    scene.add(light);
+
+    // LINKED LIST DATA & VISUAL
+    class Node {
+      constructor(value, x) {
+        this.value = value;
+        this.next = null;
+
+        const geometry = new THREE.SphereGeometry(1, 16, 16);
+        const material = new THREE.MeshStandardMaterial({ color: 0x00ffcc });
+        this.mesh = new THREE.Mesh(geometry, material);
+        this.mesh.position.x = x;
+        scene.add(this.mesh);
+
+        const labelDiv = document.createElement('div');
+        labelDiv.style.position = 'absolute';
+        labelDiv.style.color = 'white';
+        labelDiv.innerHTML = value;
+        document.body.appendChild(labelDiv);
+        this.labelDiv = labelDiv;
+      }
+
+      updateLabel(camera) {
+        const vector = new THREE.Vector3().copy(this.mesh.position).project(camera);
+        const x = (vector.x * 0.5 + 0.5) * window.innerWidth;
+        const y = (-vector.y * 0.5 + 0.5) * window.innerHeight;
+        this.labelDiv.style.left = x + 'px';
+        this.labelDiv.style.top = y + 'px';
+      }
+    }
+
+    let head = null;
+    let nodeCount = 0;
+
+    function renderList() {
+      let current = head;
+      let index = 0;
+      while (current) {
+        current.mesh.position.x = index * 3;
+        if (current.next) {
+          const arrow = new THREE.ArrowHelper(
+            new THREE.Vector3(1, 0, 0),
+            current.mesh.position,
+            3,
+            0xffff00
+          );
+          scene.add(arrow);
+        }
+        current = current.next;
+        index++;
+      }
+    }
+
+    function insertNode() {
+      const newNode = new Node(nodeCount++, nodeCount * 3);
+      if (!head) {
+        head = newNode;
+      } else {
+        let temp = head;
+        while (temp.next) temp = temp.next;
+        temp.next = newNode;
+      }
+      scene.children = scene.children.filter(obj => !(obj.type === 'ArrowHelper')); // remove old arrows
+      renderList();
+    }
+
+    function deleteNode() {
+      if (!head) return;
+      if (!head.next) {
+        scene.remove(head.mesh);
+        document.body.removeChild(head.labelDiv);
+        head = null;
+      } else {
+        let temp = head;
+        while (temp.next && temp.next.next) temp = temp.next;
+        scene.remove(temp.next.mesh);
+        document.body.removeChild(temp.next.labelDiv);
+        temp.next = null;
+      }
+      scene.children = scene.children.filter(obj => !(obj.type === 'ArrowHelper'));
+      renderList();
+    }
+
+    function reverseList() {
+      let prev = null;
+      let current = head;
+      while (current) {
+        let next = current.next;
+        current.next = prev;
+        prev = current;
+        current = next;
+      }
+      head = prev;
+      scene.children = scene.children.filter(obj => !(obj.type === 'ArrowHelper'));
+      renderList();
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+      let temp = head;
+      while (temp) {
+        temp.mesh.rotation.y += 0.01;
+        temp.updateLabel(camera);
+        temp = temp.next;
+      }
+      renderer.render(scene, camera);
+    }
+    animate();
+  </script>
+</body>
+</html>
