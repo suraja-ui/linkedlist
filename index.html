@@ -2,31 +2,28 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Linked List 3D Game</title>
+  <title>Linked List Game</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Orbitron&display=swap');
-
     body {
       margin: 0;
       overflow: hidden;
       font-family: 'Orbitron', sans-serif;
       background: radial-gradient(circle at top left, #0f2027, #203a43, #2c5364);
     }
-
-    canvas {
-      display: block;
-    }
+    canvas { display: block; }
 
     #ui {
       position: absolute;
       top: 20px;
       left: 20px;
-      background: rgba(255, 255, 255, 0.05);
+      background: rgba(255, 255, 255, 0.07);
       backdrop-filter: blur(8px);
       border-radius: 12px;
       padding: 20px;
       color: white;
       box-shadow: 0 0 20px rgba(0,0,0,0.6);
+      z-index: 10;
     }
 
     #ui h2 {
@@ -50,33 +47,32 @@
       background: #00ffaa;
     }
 
-    #info {
-      margin-top: 10px;
-      font-size: 14px;
-      color: #ccc;
+    input {
+      padding: 6px;
+      margin: 6px 0;
+      border: none;
+      border-radius: 6px;
     }
 
-    input {
-      margin-top: 5px;
-      padding: 5px;
-      border-radius: 4px;
-      border: none;
+    #info {
+      font-size: 14px;
+      color: #ccc;
     }
   </style>
 </head>
 <body>
   <div id="ui">
     <h2>Linked List Game</h2>
+    <input id="nodeValue" placeholder="Node value" />
     <button onclick="insertNode()">Insert Node</button>
     <button onclick="deleteNode()">Delete Last</button>
     <button onclick="reverseList()">Reverse</button>
+    <input id="newValue" placeholder="New value for update" />
     <button onclick="updateSelectedNode()">Update Selected</button>
-    <input id="newValue" placeholder="New Value" />
-    <p id="info">Click on a node to select it and perform actions.</p>
+    <p id="info">Click on a node to select and update it.</p>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
-
   <script>
     // Setup
     const scene = new THREE.Scene();
@@ -90,7 +86,7 @@
     light.position.set(10, 10, 10);
     scene.add(light);
 
-    // Linked List Data
+    // Linked List Node
     class Node {
       constructor(value) {
         this.value = value;
@@ -102,13 +98,13 @@
         this.mesh.userData = this;
         scene.add(this.mesh);
 
-        const div = document.createElement('div');
-        div.style.position = 'absolute';
-        div.style.color = 'white';
-        div.style.fontSize = '14px';
-        div.innerHTML = value;
-        document.body.appendChild(div);
-        this.label = div;
+        const label = document.createElement('div');
+        label.style.position = 'absolute';
+        label.style.color = 'white';
+        label.style.fontWeight = 'bold';
+        label.innerText = value;
+        document.body.appendChild(label);
+        this.label = label;
       }
 
       updateLabel() {
@@ -125,40 +121,42 @@
       }
     }
 
+    // Linked List Core
     let head = null;
     let selectedNode = null;
-    let nodeCount = 0;
 
     function renderList() {
-      scene.children = scene.children.filter(obj => !(obj.type === 'ArrowHelper'));
+      scene.children = scene.children.filter(obj => obj.type !== 'ArrowHelper');
 
-      let curr = head, i = 0;
-      while (curr) {
-        curr.mesh.position.set(i * 4, 0, 0);
-        curr.label.innerHTML = curr.value;
-        if (curr.next) {
+      let temp = head;
+      let i = 0;
+      while (temp) {
+        temp.mesh.position.set(i * 4, 0, 0);
+        temp.label.innerText = temp.value;
+        temp.updateLabel();
+        if (temp.next) {
           const arrow = new THREE.ArrowHelper(
             new THREE.Vector3(1, 0, 0),
-            curr.mesh.position,
+            temp.mesh.position,
             4,
             0xffff00
           );
           scene.add(arrow);
         }
-        curr = curr.next;
         i++;
+        temp = temp.next;
       }
     }
 
     function insertNode() {
-      const value = "Node " + nodeCount++;
-      const newNode = new Node(value);
+      const val = document.getElementById('nodeValue').value || `Node-${Math.floor(Math.random() * 1000)}`;
+      const node = new Node(val);
       if (!head) {
-        head = newNode;
+        head = node;
       } else {
         let temp = head;
         while (temp.next) temp = temp.next;
-        temp.next = newNode;
+        temp.next = node;
       }
       renderList();
     }
@@ -190,33 +188,34 @@
     }
 
     function updateSelectedNode() {
-      if (!selectedNode) {
-        alert("Please select a node first.");
-        return;
-      }
-      const value = document.getElementById('newValue').value;
-      if (value) {
-        selectedNode.value = value;
+      const newValue = document.getElementById('newValue').value;
+      if (selectedNode && newValue.trim() !== "") {
+        selectedNode.value = newValue;
+        selectedNode.label.innerText = newValue;
         renderList();
+      } else {
+        alert("Please select a node and enter a value to update.");
       }
     }
 
-    // Mouse click selection
+    // Mouse selection
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
+
     window.addEventListener('click', (event) => {
       mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
       mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
       raycaster.setFromCamera(mouse, camera);
       const intersects = raycaster.intersectObjects(scene.children);
-      if (intersects.length > 0 && intersects[0].object.userData) {
+      const found = intersects.find(i => i.object.userData instanceof Node);
+      if (found) {
         if (selectedNode) selectedNode.mesh.material.color.set(0x00ffcc);
-        selectedNode = intersects[0].object.userData;
+        selectedNode = found.object.userData;
         selectedNode.mesh.material.color.set(0xff5555);
       }
     });
 
-    // Animation loop
+    // Animation Loop
     function animate() {
       requestAnimationFrame(animate);
       let temp = head;
